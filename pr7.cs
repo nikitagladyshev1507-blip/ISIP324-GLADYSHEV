@@ -1,16 +1,16 @@
+using ConsoleApp8;
 using System;
+using System.Collections.Generic;
 using System.Data.Entity;
 using System.Linq;
 using System.Security.Cryptography;
 using System.Text;
-using System.Collections.Generic;
-using ConsoleApp2;
 
 namespace GmwogMarketplace
 {
     class Program
     {
-        private static User _currentUser;
+        private static GmwogMarketplace.User _currentUser;
 
         static void Main(string[] args)
         {
@@ -77,10 +77,10 @@ namespace GmwogMarketplace
 
             using (var db = new pr7GEntities())
             {
-                if (db.Users.Any(u => u.Nickname == nick))
+                if (db.User.Any(u => u.Nickname == nick))
                 { Console.WriteLine("Ник занят!"); return; }
 
-                db.Users.Add(new User
+                db.User.Add(new User
                 {
                     Nickname = nick,
                     PasswordHash = Hash(pass),
@@ -99,7 +99,7 @@ namespace GmwogMarketplace
 
             using (var db = new pr7GEntities())
             {
-                var user = db.Users.FirstOrDefault(u => u.Nickname == nick);
+                var user = db.User.FirstOrDefault(u => u.Nickname == nick);
                 if (user == null || user.PasswordHash != Hash(pass))
                 { Console.WriteLine("Неверно!"); return; }
 
@@ -112,7 +112,7 @@ namespace GmwogMarketplace
         {
             using (var db = new pr7GEntities())
             {
-                var list = db.Products.Where(p => p.IsAvailable && p.Stock > 0).ToList();
+                var list = db.Product.Where(p => p.IsAvailable && p.Stock > 0).ToList();
                 if (!list.Any()) { Console.WriteLine("Нет товаров"); return; }
 
                 Console.WriteLine("\n{0,-5} {1,-25} {2,-10} {3,-5}", "ID", "Название", "Цена", "Ост.");
@@ -133,13 +133,15 @@ namespace GmwogMarketplace
 
             using (var db = new pr7GEntities())
             {
-                var prod = db.Products.FirstOrDefault(p => p.Id == id && p.Stock > 0);
+                var prod = db.Product.FirstOrDefault(p => p.Id == id && p.Stock > 0);
                 if (prod == null) { Console.WriteLine("Нет товара"); return; }
                 if (prod.Stock < qty) { Console.WriteLine("Мало на складе"); return; }
 
-                var cart = db.Carts.FirstOrDefault(c => c.UserId == _currentUser.Id && c.ProductId == id);
-                if (cart != null) cart.Quantity += qty;
-                else db.Carts.Add(new Cart { UserId = _currentUser.Id, ProductId = id, Quantity = qty });
+                var cart = db.Cart.FirstOrDefault(c => c.UserId == _currentUser.Id && c.ProductId == id);
+                if (cart != null)
+                    cart.Quantity += qty;
+                else
+                    db.Cart.Add(new Cart { UserId = _currentUser.Id, ProductId = id, Quantity = qty });
 
                 db.SaveChanges();
                 Console.WriteLine("Добавлено!");
@@ -150,14 +152,14 @@ namespace GmwogMarketplace
         {
             using (var db = new pr7GEntities())
             {
-                var items = db.Carts.Where(c => c.UserId == _currentUser.Id).ToList();
+                var items = db.Cart.Where(c => c.UserId == _currentUser.Id).ToList();
                 if (!items.Any()) { Console.WriteLine("Корзина пуста"); return; }
 
                 decimal total = 0;
                 Console.WriteLine("\nКорзина:");
                 foreach (var item in items)
                 {
-                    var prod = db.Products.First(p => p.Id == item.ProductId);
+                    var prod = db.Product.First(p => p.Id == item.ProductId);
                     var sum = prod.Price * item.Quantity;
                     total += sum;
                     Console.WriteLine($"- {prod.Name} x{item.Quantity} = {sum:F2}");
@@ -177,10 +179,10 @@ namespace GmwogMarketplace
 
             using (var db = new pr7GEntities())
             {
-                var prod = db.Products.FirstOrDefault(p => p.Id == id && p.Stock >= qty);
+                var prod = db.Product.FirstOrDefault(p => p.Id == id && p.Stock >= qty);
                 if (prod == null) { Console.WriteLine("Ошибка"); return; }
 
-                var pp = SelectPickupPoint(db);
+                var pp = SelectPickupPoint(db);  
                 if (pp == null) return;
 
                 var order = new Order
@@ -190,10 +192,10 @@ namespace GmwogMarketplace
                     OrderDate = DateTime.Now,
                     TotalAmount = prod.Price * qty
                 };
-                db.Orders.Add(order);
+                db.Order.Add(order);
                 db.SaveChanges();
 
-                db.OrderItems.Add(new OrderItem
+                db.OrderItem.Add(new OrderItem  
                 {
                     OrderId = order.Id,
                     ProductId = prod.Id,
@@ -212,12 +214,12 @@ namespace GmwogMarketplace
         {
             using (var db = new pr7GEntities())
             {
-                var items = db.Carts.Where(c => c.UserId == _currentUser.Id).ToList();
+                var items = db.Cart.Where(c => c.UserId == _currentUser.Id).ToList();
                 if (!items.Any()) { Console.WriteLine("Корзина пуста"); return; }
 
                 foreach (var item in items)
                 {
-                    var prod = db.Products.First(p => p.Id == item.ProductId);
+                    var prod = db.Product.First(p => p.Id == item.ProductId);
                     if (prod.Stock < item.Quantity)
                     { Console.WriteLine($"Мало '{prod.Name}'"); return; }
                 }
@@ -225,7 +227,7 @@ namespace GmwogMarketplace
                 var pp = SelectPickupPoint(db);
                 if (pp == null) return;
 
-                decimal total = items.Sum(i => db.Products.First(p => p.Id == i.ProductId).Price * i.Quantity);
+                decimal total = items.Sum(i => db.Product.First(p => p.Id == i.ProductId).Price * i.Quantity);
 
                 var order = new Order
                 {
@@ -234,13 +236,13 @@ namespace GmwogMarketplace
                     OrderDate = DateTime.Now,
                     TotalAmount = total
                 };
-                db.Orders.Add(order);
+                db.Order.Add(order);
                 db.SaveChanges();
 
                 foreach (var item in items)
                 {
-                    var prod = db.Products.First(p => p.Id == item.ProductId);
-                    db.OrderItems.Add(new OrderItem
+                    var prod = db.Product.First(p => p.Id == item.ProductId);
+                    db.OrderItem.Add(new OrderItem
                     {
                         OrderId = order.Id,
                         ProductId = item.ProductId,
@@ -250,7 +252,7 @@ namespace GmwogMarketplace
                     prod.Stock -= item.Quantity;
                 }
 
-                db.Carts.RemoveRange(items);
+                db.Cart.RemoveRange(items);  
                 db.SaveChanges();
 
                 Console.WriteLine($"Заказ #{order.Id} оформлен! Сумма: {total:F2}");
@@ -262,7 +264,7 @@ namespace GmwogMarketplace
         {
             using (var db = new pr7GEntities())
             {
-                var orders = db.Orders.Where(o => o.UserId == _currentUser.Id).ToList();
+                var orders = db.Order.Where(o => o.UserId == _currentUser.Id).ToList();
                 if (!orders.Any()) { Console.WriteLine("Нет заказов"); return; }
 
                 Console.WriteLine("1. Сначала новые\n2. Сначала старые");
@@ -272,14 +274,14 @@ namespace GmwogMarketplace
 
                 foreach (var order in orders)
                 {
-                    var pp = db.PickupPoints.First(p => p.Id == order.PickupPointId);
-                    var items = db.OrderItems.Where(i => i.OrderId == order.Id).ToList();
+                    var pp = db.PickupPoint.First(p => p.Id == order.PickupPointId);
+                    var items = db.OrderItem.Where(i => i.OrderId == order.Id).ToList();
 
                     Console.WriteLine($"\nЗаказ #{order.Id} от {order.OrderDate:dd.MM.yyyy HH:mm}");
                     Console.WriteLine($"ПВЗ: {pp.Name}, {pp.Address}");
                     foreach (var item in items)
                     {
-                        var prod = db.Products.First(p => p.Id == item.ProductId);
+                        var prod = db.Product.First(p => p.Id == item.ProductId);
                         Console.WriteLine($"  {prod.Name} x{item.Quantity} = {item.Price * item.Quantity:F2}");
                     }
                     Console.WriteLine($"Итого: {order.TotalAmount:F2}");
@@ -289,7 +291,7 @@ namespace GmwogMarketplace
 
         static PickupPoint SelectPickupPoint(pr7GEntities db)
         {
-            var points = db.PickupPoints.ToList();
+            var points = db.PickupPoint.ToList();
             if (!points.Any()) { Console.WriteLine("Нет ПВЗ"); return null; }
 
             Console.WriteLine("\nПВЗ:");
